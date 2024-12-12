@@ -7,8 +7,13 @@ from Terrain import Terrain, Case
 class TestTerrain(unittest.TestCase):
 
     def test_chargement(self):
-        # TODO
-        self.fail()
+        # Chemin du fichier déjà présent
+        fichier_description = "terrains/t1.txt"
+
+        # Charger le terrain à partir du fichier
+        t = Terrain()
+        t.charger(fichier_description)
+      
 
     def test_accesseur(self):
         t = Terrain()

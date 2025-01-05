@@ -3,68 +3,6 @@ from itertools import permutations
 from copy import deepcopy
 import os
 
-#def afficher_reseau(t, noeuds, arcs):
-#    positions_noeuds = {(y, x): id_noeud for id_noeud, (y, x) in noeuds.items()}
-#
-#    for i, ligne in enumerate(t.cases):
-#        # Apparation des cases, noeuds et arcs horizontaux
-#        for j, case in enumerate(ligne):
-#            if (i, j) in positions_noeuds:
-#                id_noeud = positions_noeuds[(i, j)]
-#                if not((i, j - 1) in positions_noeuds) and (id_noeud < 10 and any(id_noeud > 9 for id_noeud in noeuds)): print(" ", end = "")
-#                print(id_noeud, end = "")
-#
-#                # Vérifier le voisin de droite
-#                if (i, j + 1) in positions_noeuds:
-#                    id_voisin = positions_noeuds[(i, j + 1)]
-#
-#                    if (id_noeud, id_voisin) in arcs:
-#                        if (id_voisin < 10) and any(id > 9 for id in noeuds): print("-", end = "")
-#                        if (id_voisin < 100) and any(id > 99 for id in noeuds): print("-", end = "")
-#                        print("→", end = "")
-#                    elif (id_voisin, id_noeud) in arcs:
-#                        print("←", end = "")
-#                        if (id_voisin < 10) and any(id > 9 for id in noeuds): print("-", end = "")
-#                        if (id_voisin < 100) and any(id > 99 for id in noeuds): print("-", end = "")
-#                    else:
-#                        if (id_voisin < 10 and any(id > 9 for id in noeuds)): print(" ", end = "")
-#                        print(" ", end = "")
-#                        if (id_voisin < 100) and any(id > 99 for id in noeuds): print(" ", end = "")
-#                else:
-#                    print(" ", end = "")
-#                    if any(id_noeud > 99 for id_noeud in noeuds) and id_noeud < 100: print(" ", end = "")
-#            else:
-#                if any(id_noeud > 9 for id_noeud in noeuds): print(" ", end = "")
-#
-#                if case == Case.OBSTACLE: print("T ", end = "")
-#                if case == Case.CLIENT: print("C ", end = "")
-#                if case == Case.VIDE: print("+ ", end = "")
-#                if case == Case.ENTREE: print("E ", end = "")
-#
-#                if any(id_noeud > 99 for id_noeud in noeuds): print(" ", end = "")
-#        print()
-#
-#        # Apparition des arcs verticaux
-#        if (i < len(t.cases) - 1):
-#            for j, case in enumerate(ligne):
-#                if any(id_noeud > 9 for id_noeud in noeuds): print(" ", end = "")
-#
-#                if (i, j) in positions_noeuds:
-#                    id_noeud = positions_noeuds[(i, j)]
-#
-#                    # Vérifier le voisin du bas
-#                    if (i + 1, j) in positions_noeuds:
-#                        id_voisin = positions_noeuds[(i + 1, j)]
-#
-#                        if (id_noeud, id_voisin) in arcs: print("↓ ", end = "")
-#                        elif (id_voisin, id_noeud) in arcs: print("↑ ", end = "")
-#                        else: print("  ", end = "")
-#                    else: print("  ", end = "")
-#                else: print("  ", end = "")
-#                if any(id_noeud > 99 for id_noeud in noeuds): print(" ", end = "")
-#            print()
-#    print()
-
 class StrategieReseau:
     def configurer(self, t: Terrain) -> tuple[int, dict[int, tuple[int, int]], list[int]]:
         return -1, {}, []

@@ -9,16 +9,17 @@ if __name__ == "__main__":
 
     # Chargement du terrain
     terrain = Terrain()
-    terrain.charger("terrains/t1.txt")
+    terrain.charger("terrains/t1.txt", reseau)
 
     os.system("clear")
 
     while True:
         # Menu principal
+        print("Bienvenue dans PowerGrid !")
         print("Choissisez l'action à effectuer :")
         print("1 - Créer un réseau manuellement")
         print("2 - Créer un réseau automatiquement")
-        print("3 - Afficher le terrain")
+        print(f"3 - Afficher le terrain ({terrain.fichier})")
         print("4 - Charger un terrain")
         print("Q - Quitter")
 
@@ -35,18 +36,45 @@ if __name__ == "__main__":
                 break
             elif choix == "2": # Créer un réseau automatiquement
                 os.system("clear")
-                reseau.set_strategie(StrategieReseauAuto())
-                reseau.configurer(terrain)
 
-                # Afficher le réseau
-                print(f"Le réseau a un coût total de {reseau.calculer_cout()}M€.")
-                reseau.afficher(terrain)
+                print("Création du réseau automatique...")
+
+                # Passer en mode automatique
+                reseau.set_strategie(StrategieReseauAuto())
+
+                # Configurer le réseau
+                try: reseau.configurer(terrain)
+                except: print("Un problème est survenu lors de la création du réseau.")
+                finally:
+                    # Changer le texte
+                    os.system("clear")
+                    print("Création du réseau automatique terminée.")
+
+                    # Afficher le coût du réseau
+                    print(f"Le réseau a un coût total de {reseau.calculer_cout(terrain)}M€.")
+
+                    # Afficher la validation du réseau
+                    if reseau.valider_reseau() and reseau.valider_distribution(terrain): print("Le réseau est valide.\n")
+                    else: print("Le réseau n'est pas valide.\n")
+
+                    # Afficher le terrain et le réseau
+                    reseau.afficher(terrain)
+                    
+                # Bloquer le programme jusqu'à ce que l'utilisateur appuie sur une touche
+                input("Appuyez sur la touche Entrée pour continuer...")
 
                 # Retour au menu principal
                 os.system("clear")
                 break
             elif choix == "3": # Afficher le terrain
                 os.system("clear")
+
+                # Afficher le coût du réseau
+                print(f"Le réseau a un coût total de {reseau.calculer_cout(terrain)}M€.")
+
+                # Afficher la validation du réseau
+                if reseau.valider_reseau() and reseau.valider_distribution(terrain): print("Le réseau est valide.\n")
+                else: print("Le réseau n'est pas valide.\n")
                 
                 # Afficher le terrain et le réseau
                 reseau.afficher(terrain)
@@ -61,17 +89,20 @@ if __name__ == "__main__":
                 os.system("clear")
 
                 # Montrer les terrains disponibles
-                print("Liste des terrains disponibles :")
-                terrains = os.listdir("terrains")
+                print(f"Liste des terrains disponibles ({terrain.fichier}) :")
+                terrains = [f for f in os.listdir("terrains") if f.endswith(".txt")]
                 for i, t in enumerate(terrains):
-                    print(f"{i+1} - {t}")
+                    print(f"{i+1} - {t.split('.')[0]}")
                 print("r - Retour au menu principal")
                     
                 # Récupérer le choix de l'utilisateur et charger le terrain
                 while True:
                     choix = input("Votre choix : ")
                     if choix.isdigit():
-                        terrain.charger(f"terrains/{terrains[int(choix)-1]}")
+                        # Charger le terrain
+                        terrain.charger(f"terrains/{terrains[int(choix)-1]}", reseau)
+
+                        # Retour au menu principal
                         break
                     elif choix == "r": break
                     else: print("Choix invalide.")

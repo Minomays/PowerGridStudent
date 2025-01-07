@@ -36,6 +36,7 @@ class Reseau:
             if not any([arc[0] == n or arc[1] == n for arc in self.arcs]): return False
 
         # Regarder tous les arcs
+        arc_visites = []
         for arc in self.arcs:
             # Vérifier que les noeuds de l'arc existent
             if arc[0] not in self.noeuds.keys() or arc[1] not in self.noeuds.keys(): return False
@@ -46,13 +47,23 @@ class Reseau:
             # Vérifier que les noeuds de l'arc sont voisins
             if abs(self.noeuds[arc[0]][0] - self.noeuds[arc[1]][0]) + abs(self.noeuds[arc[0]][1] - self.noeuds[arc[1]][1]) != 1: return False
 
+            # Vérifier que l'arc n'est pas en double ou existe dans l'autre sens
+            if arc in arc_visites or (arc[1], arc[0]) in self.arcs: return False
+
+            # Ajouter l'arc à la liste des arcs visités
+            arc_visites.append(arc)
         return True
 
     def valider_distribution(self, t: Terrain) -> bool:
         # Vérifier qu'il y a un noeud sur l'entrée
         if t.get_entree() not in self.noeuds.values(): return False
 
-        id_noeud_entree = [id_noeud for id_noeud, coords in self.noeuds.items() if coords == t.get_entree()][0]
+        # Obtenir l'identifiant du noeud d'entrée
+        id_noeud_entree = [id_noeud for id_noeud, coords in self.noeuds.items() if coords == t.get_entree()]
+        if not id_noeud_entree: return False
+        id_noeud_entree = id_noeud_entree[0]
+
+        # Obtenir la liste des clients (indexés pour la vérification)
         clients = t.get_clients()
         id_clients = {client: index for index, client in enumerate(clients)}
         
@@ -76,7 +87,7 @@ class Reseau:
 
         return all(verifier(id_noeud_entree))
 
-    def configurer(self, t: Terrain): self.noeud_entree, self.noeuds, self.arcs = self.strat.configurer(t)
+    def configurer(self, t: Terrain): self.noeud_entree, self.noeuds, self.arcs = self.strat.configurer(t, self.noeuds, self.arcs)
 
     def afficher(self, t: Terrain) -> None:
         # Affichage du terrain

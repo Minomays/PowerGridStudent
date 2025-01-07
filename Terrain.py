@@ -11,8 +11,9 @@ class Terrain:
         self.largeur = 0
         self.hauteur = 0
         self.cases = []
+        self.fichier = ""
 
-    def charger(self, fichier):
+    def charger(self, fichier, reseau):
         self.cases.clear()
         with open(fichier, "r") as f:
             ligne_max = 0
@@ -34,6 +35,11 @@ class Terrain:
                 self.cases[i].append(Case.OBSTACLE)
         self.largeur = ligne_max
         self.hauteur = len(self.cases)
+
+        # Effacer la liste des noeuds et des arcs
+        reseau.noeuds = {0: self.get_entree()}
+        reseau.arcs = []
+        self.fichier = fichier.split("/")[-1].split(".")[0]
 
     def __getitem__(self, l):
         return self.cases[l]
@@ -75,17 +81,17 @@ class Terrain:
         for ligne, l in enumerate(self.cases):
             for colonne, c in enumerate(l):
                 if (ligne, colonne) in noeuds.values():
-                    if c == Case.OBSTACLE: print("T", end = "")
-                    if c == Case.CLIENT: print("C", end = "")
-                    if c == Case.VIDE: print("+", end = "")
-                    if c == Case.ENTREE: print("E ", end = "")
-                    else: print(" ", end = "")
+                    if c == Case.OBSTACLE: print("\033[31m", end = "T ")
+                    if c == Case.CLIENT: print("\033[34m", end = "C ")
+                    if c == Case.VIDE: print("\033[37m", end = "+ ")
+                    if c == Case.ENTREE: print("\033[32m", end = "E ")
                 else:
-                    if c == Case.OBSTACLE: print("X", end = "")
-                    if c == Case.CLIENT: print("C", end = "")
-                    if c == Case.VIDE: print("~", end = "")
-                    if c == Case.ENTREE: print("E ", end = "")
-                    else: print(" ", end = "")
+                    if c == Case.OBSTACLE: print("\033[31m", end = "X ")
+                    if c == Case.CLIENT: print("\033[34m", end = "C ")
+                    if c == Case.VIDE: print("\033[90m", end = "~ ")
+                    if c == Case.ENTREE: print("\033[32m", end = "E ")
+
+                print("\033[0m", end = "")
             print()
 
     def afficher_avec_reseau(self, noeuds: dict[int, tuple[int, int]], arcs: list[tuple[int, int]]):
@@ -102,7 +108,12 @@ class Terrain:
 
                     # Vérifier le voisin de gauche si le noeud n'est pas suivit par un autre noeud
                     if not((i, j - 1) in positions_noeuds) and (id_noeud < 10 and id_max > 9): print(" ", end = "")
-                    print(id_noeud, end = "")
+                    
+                    # Afficher le noeud, et appliquer une couleur différente selon le type de case
+                    if case == Case.OBSTACLE: print("\033[31m", end = f"{id_noeud}")
+                    elif case == Case.CLIENT: print("\033[34m", end = f"{id_noeud}")
+                    elif case == Case.VIDE: print("\033[37m", end = f"{id_noeud}")
+                    elif case == Case.ENTREE: print("\033[32m", end = f"{id_noeud}")
 
                     # Vérifier le voisin de droite s'il y a un noeud
                     if (i, j + 1) in positions_noeuds:
@@ -126,13 +137,13 @@ class Terrain:
                 else:
                     if id_max > 9: print(" ", end = "")
 
-                    if case == Case.OBSTACLE: print("T ", end = "")
-                    if case == Case.CLIENT: print("C ", end = "")
-                    if case == Case.VIDE: print("+ ", end = "")
-                    if case == Case.ENTREE: print("E ", end = "")
+                    if case == Case.OBSTACLE: print("\033[31m", end = "T ")
+                    if case == Case.CLIENT: print("\033[34m", end = "C ")
+                    if case == Case.VIDE: print("\033[90m", end = "+ ")
+                    if case == Case.ENTREE: print("\033[32m", end = "E ")
 
                     if id_max > 99: print(" ", end = "")
-            print()
+            print("\033[37m")
 
             # Apparition des arcs verticaux
             if (i < len(self.cases) - 1):

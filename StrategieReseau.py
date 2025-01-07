@@ -1,15 +1,23 @@
 from Terrain import Terrain, Case
+from typing import TypedDict, Tuple
 from itertools import permutations
 from copy import deepcopy
 import os
 
+class NoeudDict(TypedDict):
+    id: int
+    coords: Tuple[int, int]
+
 class StrategieReseau:
-    def configurer(self, t: Terrain) -> tuple[int, dict[int, tuple[int, int]], list[int]]:
+    def configurer(self, t: Terrain, noeuds: dict[int, tuple[int, int]], arcs: list[tuple[int, int]]) -> tuple[int, dict[int, tuple[int, int]], list[int]]:
         return -1, {}, []
 
 class StrategieReseauManuelle(StrategieReseau):
-    def configurer(self, t: Terrain) -> tuple[int, dict[int, tuple[int, int]], list[int]]:
+    def configurer(self, t: Terrain, noeuds: dict[int, tuple[int, int]], arcs: list[tuple[int, int]]) -> tuple[int, dict[int, tuple[int, int]], list[int]]:
         def afficher_terrain(noeuds, arcs):
+            # Supprimer la console
+            os.system("clear")
+
             # Affichage du terrain
             print("Vue du terrain : ")
             t.afficher_avec_terrain(noeuds)
@@ -17,369 +25,435 @@ class StrategieReseauManuelle(StrategieReseau):
             # Affichage du réseau
             print("\nVue du réseau : ")
             t.afficher_avec_reseau(noeuds, arcs)
+        def obtenir_id_noeud(coords: tuple[int, int]) -> int | None: return [id for id, c in noeuds.items() if c == coords][0]
+        # Retourne la liste des voisins non-connectés à un noeud
+        def noeuds_a_connecter(id_noeud: int) -> NoeudDict | list[None]:
+            # Obtenir les voisins du noeud
+            voisins = []
+            if (noeuds[id_noeud][0] > 0 and (noeuds[id_noeud][0] - 1, noeuds[id_noeud][1]) in noeuds.values()): voisins.append({'id': obtenir_id_noeud((noeuds[id_noeud][0] - 1, noeuds[id_noeud][1])), 'coords': (noeuds[id_noeud][0] - 1, noeuds[id_noeud][1])})
+            if (noeuds[id_noeud][0] < len(t.cases) - 1 and (noeuds[id_noeud][0] + 1, noeuds[id_noeud][1]) in noeuds.values()): voisins.append({'id': obtenir_id_noeud((noeuds[id_noeud][0] + 1, noeuds[id_noeud][1])), 'coords': (noeuds[id_noeud][0] + 1, noeuds[id_noeud][1])})
+            if (noeuds[id_noeud][1] > 0 and (noeuds[id_noeud][0], noeuds[id_noeud][1] - 1) in noeuds.values()): voisins.append({'id': obtenir_id_noeud((noeuds[id_noeud][0], noeuds[id_noeud][1] - 1)), 'coords': (noeuds[id_noeud][0], noeuds[id_noeud][1] - 1)})
+            if (noeuds[id_noeud][1] < len(t.cases[0]) - 1 and (noeuds[id_noeud][0], noeuds[id_noeud][1] + 1) in noeuds.values()): voisins.append({'id': obtenir_id_noeud((noeuds[id_noeud][0], noeuds[id_noeud][1] + 1)), 'coords': (noeuds[id_noeud][0], noeuds[id_noeud][1] + 1)})
+
+            # Obtenir les arcs non connectés au noeud
+            if len(voisins) > 0:
+                # Supprimer les voisins connectés au noeud
+                i = 0
+                while i < len(voisins):
+                    voisin = voisins[i]
+
+                    # Vérifier si le voisin n'est pas connecté au noeud
+                    if (id_noeud, voisin['id']) not in arcs and (voisin['id'], id_noeud) not in arcs: i += 1
+                    else: del voisins[i]
+                
+                if len(voisins) > 0:
+                    # Trier les voisins par ID croissant
+                    voisins = sorted(voisins, key = lambda v: v['id'])
+                    
+                    return voisins
+                # Tous les voisins sont connectés au noeud
+                else: return [None]
+            # Le noeud n'a pas de voisins
+            else: return [None]
 
         predictions = {
-            'add': {
-                'noeud': {
-                    'id': 1,
-                    'prediction': (None, None),
-                    'direction': (None, None),
-                    'precedent': t.get_entree()
+            'noeud': {
+                'prediction': {
+                    'id': None,
+                    'coords': None,
                 },
-                'arc': {
-                    'noeud': 0
-                },
+                'direction': (None, None),
+                'precedent': {
+                    'id': None,
+                    'coords': None
+                }
             },
+            'arc': None,
             'action': 'n',
-            'noeud': 0,
-            'arc': None
         }
-        
-        noeuds = { 0: t.get_entree() }
-        arcs = []
+
+        # Récupérer les prédictions du noeud
+        prediction = predictions['noeud']['prediction']
+        direction = predictions['noeud']['direction']
+        precedent = predictions['noeud']['precedent']
+
+        # Charger les valeurs à prédire
+        id_noeud = max(noeuds) if noeuds else None
+        precedent['id'] = id_noeud; precedent['coords'] = noeuds[id_noeud] if noeuds else None
+        if id_noeud != None:
+            predictions['arc'] = noeuds_a_connecter(id_noeud)[0] if noeuds else None
+
+            # Prédiction de l'ID du prochain noeud
+            prediction['id'] = id_noeud + 1
+            while prediction['id'] in noeuds: prediction['id'] += 1
+
         while True:
             afficher_terrain(noeuds, arcs)
             action = input("Voulez-vous ajouter un élément (a), modifier un élément (m), supprimer un élément (s) ou terminer (t) ? (a) : ")
             if action == '': action = 'a'
 
-            if action == 't': break
-            elif action == 'a':
+            if action == 't' or action == 'T': break
+            elif action == 'a' or action == 'A':
                 # Choix de l'élément à ajouter
                 type_element = input(f"Voulez-vous ajouter un noeud (n) ou un arc (a), ou retourner au menu précédent (r) ? ({predictions['action']}) : ")
                 if type_element == '': type_element = predictions['action']
 
                 # Ajout d'un noeud
-                if type_element == 'n':
+                if type_element == 'n' or type_element == 'N':
                     # Prédiction du prochain ajout
                     predictions['action'] = 'n'
-                    prediction = predictions['add']['noeud']
 
                     # Obtenir l'ID du nouveau noeud
                     while True:
                         user_input = input(f"Entrez l'ID du noeud ({prediction['id']}) : " if prediction['id'] else "Entrez l'ID du noeud : ")
-                        if (user_input == 'r'): break
+                        if (user_input == 'r' or user_input == 'R'): break
                         id_noeud = int(user_input) if user_input else (prediction['id'] if prediction['id'] != None else -1)
                         
                         if id_noeud in noeuds: print("Cet ID de noeud existe déjà. Veuillez en entrer un autre.")
                         else: break
+                    # Retourner au menu principal
+                    if (user_input == 'r' or user_input == 'R'): continue
                     
                     # Obtenir les coordonnées du nouveau noeud
-                    if (user_input == 'r'): continue
                     while True:
                         # x input
                         while True:
-                            user_input = input(f"- Entrez la coordonnée x du noeud ({prediction['prediction'][1]}) : " if prediction['prediction'][1] else f"- Entrez la coordonnée x du noeud (précedemment {prediction['precedent'][1]}) : ")
-                            if (user_input == 'r'): break
-                            x = int(user_input) if user_input else (prediction['prediction'][1] if prediction['prediction'][1] != None else (prediction['precedent'][1] if prediction['precedent'][1] != None else -1))
+                            user_input = input(f"- Entrez la coordonnée x du noeud ({prediction['coords'][1]}) : " if prediction['coords'] else f"- Entrez la coordonnée x du noeud (précedemment {precedent['coords'][1]}) : ")
+                            if (user_input == 'r' or user_input == 'R'): break
+                            x = int(user_input) if user_input else (prediction['coords'][1] if prediction['coords'] else (precedent['coords'][1] if precedent['coords'] != None else -1))
                             
-                            if x < 0 or x >= len(t.cases[0]): print("La coordonnée x doit être comprise entre 0 et la largeur du terrain.")
+                            if x < 0 or x >= len(t.cases[0]): print(f"La coordonnée x doit être comprise entre 0 et {len(t.cases[0]) - 1}.")
                             else: break
+                        # Retourner au menu principal
+                        if (user_input == 'r' or user_input == 'R'): break
                         
                         # y input
-                        if (user_input == 'r'): break
                         while True:
-                            user_input = input(f"- Entrez la coordonnée y du noeud ({prediction['prediction'][0]}) : " if prediction['prediction'][0] else f"- Entrez la coordonnée y du noeud (précédemment {prediction['precedent'][0]}) : ")
-                            if (user_input == 'r'): break
-                            y = int(user_input) if user_input else (prediction['prediction'][0] if prediction['prediction'][0] != None else (prediction['precedent'][0] if prediction['precedent'][0] != None else -1))
+                            user_input = input(f"- Entrez la coordonnée y du noeud ({prediction['coords'][0]}) : " if prediction['coords'] else f"- Entrez la coordonnée y du noeud (précédemment {precedent['coords'][0]}) : ")
+                            if (user_input == 'r' or user_input == 'R'): break
+                            y = int(user_input) if user_input else (prediction['coords'][0] if prediction['coords'] else (precedent['coords'][0] if precedent['coords'] else -1))
                             
-                            if y < 0 or y >= len(t.cases): print("La coordonnée y doit être comprise entre 0 et la hauteur du terrain.")
+                            if y < 0 or y >= len(t.cases): print(f"La coordonnée y doit être comprise entre 0 et {len(t.cases) - 1}.")
                             else: break
+                        # Retourner au menu principal
+                        if (user_input == 'r' or user_input == 'R'): break
 
-                        if (user_input == 'r'): break
+                        if (y, x) in noeuds.values():
+                            print("Un noeud existe déjà à ces coordonnées. Veuillez en entrer d'autres.")
+                            continue
+                        
+                        if (prediction['coords'] == None or (y == prediction['coords'][0] and x == prediction['coords'][1])):
+                            # Prédiction de la direction
+                            if precedent['coords'] is None: direction = (None, None)
+                            elif precedent['coords'][0] == y-1 and precedent['coords'][1] == x: direction = (1, 0)
+                            elif precedent['coords'][0] == y+1 and precedent['coords'][1] == x: direction = (-1, 0)
+                            elif precedent['coords'][0] == y and precedent['coords'][1] == x-1: direction = (0, 1)
+                            elif precedent['coords'][0] == y and precedent['coords'][1] == x+1: direction = (0, -1)
+                            else: direction = (None, None)
 
-                        if (y, x) in noeuds.values(): print("Un noeud existe déjà à ces coordonnées. Veuillez en entrer d'autres.")
+                            # Vérification des coordonnées par rapport à la direction
+                            if direction != (None, None) and (
+                                (direction[0] == 1 and y == len(t.cases) - 1) or
+                                (direction[0] == -1 and y == 0) or
+                                (direction[1] == 1 and x == len(t.cases[0]) - 1) or
+                                (direction[1] == -1 and x == 0) or
+                                (y + direction[0], x + direction[1]) in noeuds.values()
+                            ): direction = (None, None)
+                            
+                            prediction['coords'] = (y + direction[0], x + direction[1]) if direction != (None, None) else None
                         else:
-                            if (prediction['prediction'] == (None, None)):
-                                # Prédiction de la direction
-                                if (prediction['precedent'][0] == y-1 and prediction['precedent'][1] == x): prediction['direction'] = (1, 0)
-                                elif (prediction['precedent'][0] == y+1 and prediction['precedent'][1] == x): prediction['direction'] = (-1, 0)
-                                elif (prediction['precedent'][0] == y and prediction['precedent'][1] == x-1): prediction['direction'] = (0, 1)
-                                elif (prediction['precedent'][0] == y and prediction['precedent'][1] == x+1): prediction['direction'] = (0, -1)
-                                else: prediction['direction'] = (None, None)
-                                
-                                prediction['prediction'] = (y + prediction['direction'][0], x + prediction['direction'][1]) if prediction['direction'] != (None, None) else (None, None)
-                            else:
-                                # Vérifier si la direction a changé
-                                if (y == prediction['prediction'][0] and x == prediction['prediction'][1]):
-                                    # Prédiction de la direction
-                                    if (prediction['precedent'][0] == y-1 and prediction['precedent'][1] == x): prediction['direction'] = (1, 0)
-                                    elif (prediction['precedent'][0] == y+1 and prediction['precedent'][1] == x): prediction['direction'] = (-1, 0)
-                                    elif (prediction['precedent'][0] == y and prediction['precedent'][1] == x-1): prediction['direction'] = (0, 1)
-                                    elif (prediction['precedent'][0] == y and prediction['precedent'][1] == x+1): prediction['direction'] = (0, -1)
-                                    else: prediction['direction'] = (None, None)
+                            direction = (None, None)
+                            prediction['coords'] = None
 
-                                    prediction['prediction'] = (y + prediction['direction'][0], x + prediction['direction'][1]) if prediction['direction'] != (None, None) else (None, None)
-                                else:
-                                    prediction['direction'] = (None, None)
-                                    prediction['prediction'] = (None, None)
+                        # Ajout du noeud
+                        noeuds[id_noeud] = (y, x)
 
-                            prediction['precedent'] = (y, x)
-                            # Prédiction de l'ID
-                            if id_noeud + 1 not in noeuds: prediction['id'] = id_noeud + 1
-                            else: prediction['id'] = None
+                        # Prédiction du premier noeud de l'arc
+                        predictions['arc'] = id_noeud
 
-                            # Prédiction de l'arc
-                            predictions['add']['arc']['noeud'] = id_noeud
-                            predictions['noeud'] = id_noeud
+                        # Mise à jour du noeud précédent
+                        precedent['id'] = id_noeud; precedent['coords'] = (y, x)
 
-                            break
-                    
-                    if (user_input == 'r'): continue
-                    noeuds[id_noeud] = (y, x)
+                        # Prédiction du prochain noeud
+                        while id_noeud in noeuds: id_noeud += 1
+                        prediction['id'] = id_noeud
+
+                        break
                 # Ajout d'un arc
-                elif type_element == 'a':
+                elif type_element == 'a' or type_element == 'A':
                     # Prédiction du prochain ajout
                     predictions['action'] = 'a'
-                    prediction = predictions['add']['arc']
 
                     while True:
                         # Obtenir l'ID du noeud de départ
                         while True:
-                            user_input = input(f"Entrez l'ID du noeud de départ ({prediction['noeud']}) : " if prediction['noeud'] else "Entrez l'ID du noeud de départ : ")
-                            if (user_input == 'r'): break
-                            noeud_depart = int(user_input) if user_input else (prediction['noeud'] if prediction['noeud'] != None else -1)
+                            user_input = input(f"Entrez l'ID du noeud de départ ({predictions['arc']}) : " if predictions['arc'] and noeuds_a_connecter(predictions['arc'])[0] else "Entrez l'ID du noeud de départ : ")
+                            if (user_input == 'r' or user_input == 'R'): break
+                            noeud_depart = int(user_input) if user_input else (predictions['arc'] if predictions['arc'] else -1)
 
                             # Vérifier si l'ID du noeud de départ existe
-                            if noeud_depart not in noeuds: print("Cet ID de noeud n'existe pas. Veuillez en entrer un autre.")
-
-                            # Vérifier s'il y a un noeud non connecté à ce noeud, et si oui prédire le premier noeud non connecté
-                            noeud = noeuds[noeud_depart]
-                            voisins = []
-                            # Regarder la case en bas
-                            if ((noeud[0] != len(t.cases) - 1) and (noeud[0] + 1, noeud[1]) in noeuds.values()):
-                                id_noeud = [id for id in noeuds if noeuds[id] == (noeud[0] + 1, noeud[1])][0]
-                                if (id_noeud, noeud_depart) not in arcs and (noeud_depart, id_noeud) not in arcs:
-                                    voisins.append(id_noeud)
-                            # Regarder la case en haut
-                            if ((noeud[0] != 0) and (noeud[0] - 1, noeud[1]) in noeuds.values()):
-                                id_noeud = [id for id in noeuds if noeuds[id] == (noeud[0] - 1, noeud[1])][0]
-                                if (id_noeud, noeud_depart) not in arcs and (noeud_depart, id_noeud) not in arcs:
-                                    voisins.append(id_noeud)
-                            # Regarder la case à gauche
-                            if ((noeud[1] != 0) and (noeud[0], noeud[1] - 1) in noeuds.values()):
-                                id_noeud = [id for id in noeuds if noeuds[id] == (noeud[0], noeud[1] - 1)][0]
-                                if (id_noeud, noeud_depart) not in arcs and (noeud_depart, id_noeud) not in arcs:
-                                    voisins.append(id_noeud)
-                            # Regarder la case à droite
-                            if ((noeud[1] != len(t.cases[0]) - 1) and (noeud[0], noeud[1] + 1) in noeuds.values()):
-                                id_noeud = [id for id in noeuds if noeuds[id] == (noeud[0], noeud[1] + 1)][0]
-                                if (id_noeud, noeud_depart) not in arcs and (noeud_depart, id_noeud) not in arcs:
-                                    voisins.append(id_noeud)
+                            if noeud_depart not in noeuds:
+                                print("Ce noeud n'existe pas. Veuillez en choisir un autre.")
+                                continue
                             
-                            if voisins:
-                                prediction['noeud-arrivee'] = min(voisins)
+                            # Vérifier si le noeud a des voisins non-connectés
+                            voisin = noeuds_a_connecter(noeud_depart)[0]
+                            if voisin:
+                                pred_noeud_arrivee = voisin['id']
                                 break
                             # Aucun noeud n'est connecté à ce noeud
                             else: print("Aucun noeud à connecter aux alentours. Veuillez en entrer un autre.")
+                        # Retourner au menu principal
+                        if (user_input == 'r' or user_input == 'R'): break
                         
                         # Obtenir l'ID du noeud d'arrivée
-                        if (user_input == 'r'): break
                         while True:
-                            user_input = input(f"Entrez l'ID du noeud d'arrivée ({prediction['noeud-arrivee']}) : ")
-                            if (user_input == 'r'): break
-                            noeud_arrivee = int(user_input) if user_input else (prediction['noeud-arrivee'] if prediction['noeud-arrivee'] != None else -1)
+                            user_input = input(f"Entrez l'ID du noeud d'arrivée ({pred_noeud_arrivee}) : ")
+                            if (user_input == 'r' or user_input == 'R'): break
+                            noeud_arrivee = int(user_input) if user_input else pred_noeud_arrivee
 
                             # Vérifier si l'ID du noeud d'arrivée existe
-                            if noeud_arrivee not in noeuds: print("Cet ID de noeud n'existe pas. Veuillez en entrer un autre.")
+                            if noeud_arrivee not in noeuds: print("Ce noeud n'existe pas. Veuillez en choisir un autre.")
                             else: break
+                        # Retourner au menu principal
+                        if (user_input == 'r' or user_input == 'R'): break
 
                         # Vérifier si l'arc existe déjà
-                        if (user_input == 'r'): break
                         if (noeud_depart, noeud_arrivee) in arcs or (noeud_arrivee, noeud_depart) in arcs: print("Cet arc existe déjà. Veuillez en entrer un autre.")
                         else:
-                            prediction['noeud'] = noeud_arrivee
-                            break
-                    
-                    if (user_input == 'r'): continue
+                            # Ajout de l'arc
+                            arcs.append((noeud_depart, noeud_arrivee))
 
-                    arc = (noeud_depart, noeud_arrivee)
-                    arcs.append(arc)
-                    predictions['arc'] = arc
+                            # Prédiction du noeud de départ
+                            if noeuds_a_connecter(noeud_arrivee)[0]: predictions['arc'] = noeud_arrivee
+                            else: predictions['arc'] = None
+
+                            break
                 # Retourner au menu principal
-                elif type_element != 'r': print("Action non reconnue. Veuillez entrer 'n', 'a' ou 't'.")
-            elif action == 'm':
+                elif type_element != 'r' and type_element != 'R': print("Action non reconnue. Veuillez entrer 'n', 'a' ou 'r'.")
+            elif action == 'm' or action == 'M':
                 type_element = input(f"Voulez-vous modifier un noeud (n) ou un arc (a), ou retourner (r) ? ({predictions['action']}) : ")
                 if (type_element == ''): type_element = predictions['action']
 
-                if type_element == 'n':
+                if type_element == 'n' or type_element == 'N':
                     # Chercher le noeud à modifier
                     while True:
                         # Obtenir l'ID du noeud à modifier
-                        user_input = input(f"Entrez l'ID du noeud à modifier ({predictions['noeud']}) : " if predictions['noeud'] else "Entrez l'ID du noeud à modifier : ")
-                        if (user_input == 'r'): break
-                        id_noeud = int(user_input) if user_input else (predictions['noeud'] if predictions['noeud'] != None else -1)
+                        user_input = input(f"Entrez l'ID du noeud à modifier ({prediction['id']}) : " if prediction['id'] else "Entrez l'ID du noeud à modifier : ")
+                        if (user_input == 'r' or user_input == 'R'): break
+                        id_noeud = int(user_input) if user_input else (prediction['id'] if prediction['id'] else -1)
 
                         # Vérifier si l'ID du noeud existe
                         if id_noeud not in noeuds: print("Cet ID de noeud n'existe pas. Veuillez en entrer un autre.")
                         else: break
-                    
-                    if (user_input == 'r'): continue
+                    # Retourner au menu principal
+                    if (user_input == 'r' or user_input == 'R'): continue
+
                     # Obtenir les nouvelles coordonnées du noeud
                     while True:
                         # x input
                         while True:
                             user_input = input(f"- Entrez la nouvelle coordonnée x du noeud ({noeuds[id_noeud][1]}) : ")
-                            if (user_input == 'r'): break
+                            if (user_input == 'r' or user_input == 'R'): break
                             x = int(user_input) if user_input else (noeuds[id_noeud][1] if noeuds[id_noeud][1] != None else -1)
                             
                             if x < 0 or x >= len(t.cases[0]): print("La coordonnée x doit être comprise entre 0 et la largeur du terrain.")
                             else: break
                         
-                        if (user_input == 'r'): break
+                        if (user_input == 'r' or user_input == 'R'): break
                         # y input
                         while True:
                             user_input = input(f"- Entrez la nouvelle coordonnée y du noeud ({noeuds[id_noeud][0]}) : ")
-                            if (user_input == 'r'): break
+                            if (user_input == 'r' or user_input == 'R'): break
                             y = int(user_input) if user_input else (noeuds[id_noeud][0] if noeuds[id_noeud][0] != None else -1)
                             
                             if y < 0 or y >= len(t.cases): print("La coordonnée y doit être comprise entre 0 et la hauteur du terrain.")
                             else: break
-                        
-                        if (user_input == 'r'): break
+                        # Retourner au menu principal
+                        if (user_input == 'r' or user_input == 'R'): break
+
                         # Vérifier si un noeud existe déjà à ces coordonnées
-                        if (y, x) in noeuds.values(): print("Un noeud existe déjà à ces coordonnées. Veuillez en entrer d'autres.")
-                        else: break
-                    
-                    if (user_input == 'r'): continue
-                    
-                    # Modifier le noeud dans la liste
-                    noeuds[id_noeud] = (y, x)
-                elif type_element == 'a':
-                    # Chercher l'arc à modifier
+                        if (y, x) in noeuds.values():
+                            print("Un noeud existe déjà à ces coordonnées. Veuillez en entrer d'autres.")
+                            continue
+                        
+                        # Modifier le noeud dans la liste
+                        noeuds[id_noeud] = (y, x)
+
+                        # Modifier la prédiction du noeud
+                        if direction: prediction['coords'] = (y + direction[0], x + direction[1])
+                elif type_element == 'a' or type_element == 'A':
+                    ## Chercher l'arc à modifier
                     print("Identification de l'arc à modifier :")
+
+                    # Obtenir l'ID du noeud de départ
                     while True:
-                        # Obtenir l'ID du noeud de départ
-                        while True:
-                            user_input = input(f"- Entrez l'ID du noeud de départ ({predictions['arc'][0]}) : " if predictions['arc'] != None else "- Entrez l'ID du noeud de départ : ")
-                            if (user_input == 'r'): break
-                            noeud_depart = int(user_input) if user_input else (predictions['arc'][0] if predictions['arc'] != None else -1)
+                        user_input = input(f"- Entrez l'ID du noeud de départ ({predictions['arc']}) : " if predictions['arc'] else "- Entrez l'ID du noeud de départ : ")
+                        if (user_input == 'r' or user_input == 'R'): break
+                        noeud_depart = int(user_input) if user_input else (predictions['arc'] if predictions['arc'] else -1)
 
-                            # Vérifier si l'ID du noeud de départ existe
-                            if noeud_depart not in noeuds: print("- Cet ID de noeud n'existe pas. Veuillez en entrer un autre.")
-                            else:
-                                # Vérifier si l'ID du noeud de départ est correct
-                                if noeud_depart not in [arc[0] for arc in arcs]: print("Cet ID de noeud n'est pas un noeud de départ d'un arc. Veuillez en entrer un autre.")
-                                else: break
-                        
-                        if (user_input == 'r'): break
-                        # Obtenir l'ID du noeud d'arrivée
-                        while True:
-                            user_input = input(f"- Entrez l'ID du noeud d'arrivée ({predictions['arc'][1]}) : " if predictions['arc'] != None else "- Entrez l'ID du noeud d'arrivée : ")
-                            if (user_input == 'r'): break
-                            noeud_arrivee = int(user_input) if user_input else (predictions['arc'][1] if predictions['arc'] != None else -1)
+                        # Vérifier si l'ID du noeud de départ existe
+                        if noeud_depart not in noeuds:
+                            print("- Cet ID de noeud n'existe pas. Veuillez en entrer un autre.")
+                            continue
+                            
+                        # Obtenir les voisins et vérifier si le noeud a des arcs
+                        voisins = [arc for arc in arcs if arc[0] == noeud_depart or arc[1] == noeud_depart]
+                        if not voisins:
+                            print("Cet ID de noeud n'est pas un noeud de départ d'un arc. Veuillez en entrer un autre.")
+                            continue
+                    # Retourner au menu principal
+                    if (user_input == 'r' or user_input == 'R'): continue
 
-                            # Vérifier si l'ID du noeud d'arrivée existe
-                            if noeud_arrivee not in noeuds: print("Cet ID de noeud n'existe pas. Veuillez en entrer un autre.")
-                            else: break
+                    # Obtenir l'ID du noeud d'arrivée
+                    while True:
+                        user_input = input(f"- Entrez l'ID du noeud d'arrivée ({voisins[0]}) : ")
+                        if (user_input == 'r' or user_input == 'R'): break
+                        noeud_arrivee = int(user_input) if user_input else voisins[0]
 
-                            # Vérifier si l'ID du noeud d'arrivée est correct
-                            if noeud_arrivee not in [arc[1] for arc in arcs]: print("Cet ID de noeud n'est pas un noeud d'arrivée d'un arc. Veuillez en entrer un autre.")
-                            else: break
-                        
-                        if (user_input == 'r'): break
+                        # Vérifier si l'ID du noeud d'arrivée existe
+                        if noeud_arrivee not in noeuds:
+                            print("Cet ID de noeud n'existe pas. Veuillez en entrer un autre.")
+                            continue
+
                         # Vérifier si l'arc existe
-                        if (noeud_depart, noeud_arrivee) not in arcs: print("Cet arc n'existe pas. Veuillez en entrer un autre.")
-                        else: break
-                    if (user_input == 'r'): continue
+                        if (noeud_depart, noeud_arrivee) in voisins:
+                            print("Cet arc n'existe pas. Veuillez en entrer un autre.")
+                            continue
+                        
+                        break
+                    # Retourner au menu principal
+                    if (user_input == 'r' or user_input == 'R'): continue
 
                     # Modifier l'arc
                     arc = (noeud_depart, noeud_arrivee)
                     id_arc = [i for i, a in enumerate(arcs) if a == arc][0]
 
+
+                    ## Modification de l'arc
                     print("Modification de l'arc :")
                     while True:
                         # Obtenir l'ID du noeud de départ
                         while True:
                             user_input = input(f"- Entrez l'ID du noeud de départ ({noeud_arrivee}) : ")
-                            if (user_input == 'r'): break
+                            if (user_input == 'r' or user_input == 'R'): break
                             new_noeud_depart = int(user_input) if user_input else noeud_arrivee
 
                             # Vérifier si l'ID du noeud de départ existe
-                            if new_noeud_depart not in noeuds: print("- Cet ID de noeud n'existe pas. Veuillez en entrer un autre.")
+                            if new_noeud_depart not in noeuds: print("Cet ID de noeud n'existe pas. Veuillez en entrer un autre.")
                             else: break
-                        
-                        if (user_input == 'r'): break
+                        # Retourner au menu principal
+                        if (user_input == 'r' or user_input == 'R'): break
+
                         # Obtenir l'ID du noeud d'arrivée
                         while True:
                             user_input = input(f"- Entrez l'ID du noeud d'arrivée ({noeud_depart}) : ")
-                            if (user_input == 'r'): break
+                            if (user_input == 'r' or user_input == 'R'): break
                             new_noeud_arrivee = int(user_input) if user_input else noeud_depart
 
                             # Vérifier si l'ID du noeud d'arrivée existe
                             if new_noeud_arrivee not in noeuds: print("Cet ID de noeud n'existe pas. Veuillez en entrer un autre.")
                             else: break
+                        # Retourner au menu principal
+                        if (user_input == 'r' or user_input == 'R'): break
+                        
+                        # Vérifier si au moins l'un des noeuds fait partie de l'arc à modifier
+                        if ((new_noeud_depart != noeud_depart and new_noeud_arrivee != noeud_arrivee) or
+                            (new_noeud_depart != noeud_arrivee and new_noeud_arrivee != noeud_depart)):
+                            print("Au moins un des noeuds doit être identique à un des noeuds de l'arc à modifier.")
+                            continue
 
-                        if (user_input == 'r'): break
-                        # Vérifier si l'arc existe déjà
-                        if ((new_noeud_depart, noeud_arrivee) in arcs or (new_noeud_arrivee, new_noeud_depart) in arcs) and not (arc == (new_noeud_arrivee, new_noeud_depart)) : print("Cet arc existe déjà. Veuillez en entrer un autre.")
-                        else: break
-                    
-                    if (user_input == 'r'): continue
+                        # Vérifier si le nouvel arc choisi existe déjà
+                        if (new_noeud_depart, new_noeud_arrivee) in arcs or (new_noeud_arrivee, new_noeud_depart) in arcs:
+                            print("Cet arc existe déjà. Veuillez en entrer un autre.")
+                            continue
 
-                    # Modifier l'arc dans la liste
-                    arcs[id_arc] = (new_noeud_depart, new_noeud_arrivee)
+                        # Modifier l'arc dans la liste
+                        arcs[id_arc] = (new_noeud_depart, new_noeud_arrivee)
 
-                    # Prédiction de l'arc
-                    predictions['arc'] = arcs[id_arc]
-                elif type_element != 'r': print("Action non reconnue. Veuillez entrer 'n', 'a' ou 't'.")
-            elif action == 's':
+                        # Prédiction de l'arc
+                        predictions['arc'] = new_noeud_arrivee
+
+                        break
+                elif type_element != 'r' and type_element != 'R': print("Action non reconnue. Veuillez entrer 'n', 'a' ou 'r'.")
+            elif action == 's' or action == 'S':
                 type_element = input(f"Voulez-vous supprimer un noeud (n) ou un arc (a), ou retourner (r) ? ({predictions['action']}) ")
                 if (type_element == ''): type_element = predictions['action']
 
-                if type_element == 'n':
+                if type_element == 'n' or type_element == 'N':
                     while True:
                         # Obtenir l'ID du noeud à supprimer
-                        user_input = input(f"- Entrez l'ID du noeud à supprimer ({predictions['noeud']}) : " if predictions['noeud'] != None else "- Entrez l'ID du noeud à supprimer : ")
-                        if (user_input == 'r'): break
-                        id_noeud = int(user_input) if user_input else (predictions['noeud'] if predictions['noeud'] != None else -1)
+                        user_input = input(f"- Entrez l'ID du noeud à supprimer ({prediction['id']}) : " if prediction['id'] != None else "- Entrez l'ID du noeud à supprimer : ")
+                        if (user_input == 'r' or user_input == 'R'): break
+                        id_noeud = int(user_input) if user_input else (prediction['id'] if prediction['id'] != None else -1)
 
                         # Vérifier si l'ID du noeud existe
-                        if id_noeud not in noeuds: print("Cet ID de noeud n'existe pas. Veuillez en entrer un autre.")
+                        if id_noeud not in noeuds: print("Ce noeud n'existe pas. Veuillez en choisir un autre.")
                         else: break
-                    
-                    if (user_input == 'r'): continue
+                    # Retourner au menu principal
+                    if (user_input == 'r' or user_input == 'R'): continue
                     
                     # Supprimer le noeud de la liste
                     del noeuds[id_noeud]
+
                     # Supprimer les arcs liés au noeud
                     arcs = [arc for arc in arcs if arc[0] != id_noeud and arc[1] != id_noeud]
-                    # Enlever la prédiction du noeud
-                    predictions['noeud'] = None
+
+                    # Enlever les prédictions du noeud
+                    if precedent['id'] == id_noeud:
+                        precedent['id'] = None; prediction['coords'] = None
+                        prediction['id'] = None;  prediction['coords'] = None
+                        direction = (None, None)
+                    
                     # Enlever la prédiction de l'arc si l'arc prédit le noeud supprimé
-                    if predictions['arc'] and (predictions['arc'][0] == id_noeud or predictions['arc'][1] == id_noeud): predictions['arc'] = None
-                elif type_element == 'a':
+                    if predictions['arc'] == id_noeud: predictions['arc'] = None
+                elif type_element == 'a' or type_element == 'A':
                     while True:
                         # Obtenir l'ID du noeud de départ
                         while True:
-                            user_input = input(f"- Entrez l'ID du noeud de départ ({predictions['arc'][0]}) : " if predictions['arc'] != None else "- Entrez l'ID du noeud de départ : ")
-                            if (user_input == 'r'): break
-                            noeud_depart = int(user_input) if user_input else (predictions['arc'][0] if predictions['arc'] != None else -1)
+                            user_input = input(f"- Entrez l'ID du noeud de départ ({predictions['arc']}) : " if predictions['arc'] else "- Entrez l'ID du noeud de départ : ")
+                            if (user_input == 'r' or user_input == 'R'): break
+                            noeud_depart = int(user_input) if user_input else (predictions['arc'] if predictions['arc'] else -1)
 
                             # Vérifier si l'ID du noeud de départ existe
                             if noeud_depart not in noeuds: print("Cet ID de noeud n'existe pas. Veuillez en entrer un autre.")
                             else: break
-                        
-                        if (user_input == 'r'): break
+
+                            # Obtenir les voisins et vérifier si le noeud a des arcs
+                            voisins = [arc for arc in arcs if arc[0] == noeud_depart or arc[1] == noeud_depart]
+                            if not voisins:
+                                print("Ce noeud n'a pas d'arc. Veuillez entrer un autre noeud.")
+                                continue
+
+                            break
+                        # Retourner au menu principal
+                        if (user_input == 'r' or user_input == 'R'): break
+
                         # Obtenir l'ID du noeud d'arrivée
                         while True:
-                            user_input = input(f"- Entrez l'ID du noeud d'arrivée ({predictions['arc'][1]}) : " if predictions['arc'] != None else "- Entrez l'ID du noeud d'arrivée : ")
-                            if (user_input == 'r'): break
-                            noeud_arrivee = int(user_input) if user_input else (predictions['arc'][1] if predictions['arc'] != None else -1)
+                            user_input = input(f"- Entrez l'ID du noeud d'arrivée ({voisins[0]}) : ")
+                            if (user_input == 'r' or user_input == 'R'): break
+                            noeud_arrivee = int(user_input) if user_input else voisins[0]
 
                             # Vérifier si l'ID du noeud d'arrivée existe
-                            if noeud_arrivee not in noeuds: print("Cet ID de noeud n'existe pas. Veuillez en entrer un autre.")
+                            if noeud_arrivee not in noeuds: print("Ce noeud n'existe pas. Veuillez en entrer un autre.")
                             else: break
-                        if (user_input == 'r'): break
+                        # Retourner au menu principal
+                        if (user_input == 'r' or user_input == 'R'): break
                         
                         # Vérifier si l'arc existe
-                        if (noeud_depart, noeud_arrivee) not in arcs: print("Cet arc n'existe pas. Veuillez en entrer un autre.")
-                        else:
-                            arcs = [arc for arc in arcs if arc != (noeud_depart, noeud_arrivee)]
+                        if (noeud_depart, noeud_arrivee) not in arcs:
+                            print("Cet arc n'existe pas. Veuillez en entrer un autre.")
+                            continue
+                        
+                        # Supprimer l'arc de la liste
+                        arcs = [arc for arc in arcs if arc != (noeud_depart, noeud_arrivee)]
                             
-                            # Enlever la prédiction de l'arc
-                            predictions['arc'] = None
-                            break
-                elif type_element != 'r': print("Action non reconnue. Veuillez entrer 'n', 'a' ou 't'.")
+                        # Enlever la prédiction de l'arc
+                        if predictions['arc'] == noeud_arrivee: predictions['arc'] = None
+                        
+                        break
+                elif type_element != 'r' and type_element != 'R': print("Action non reconnue. Veuillez entrer 'n', 'a' ou 'r'.")
             else: print("Action non reconnue. Veuillez entrer 'a', 'm', 's' ou 't'.")
         
         # Obtenir l'ID du noeud de l'entrée
@@ -389,7 +463,7 @@ class StrategieReseauManuelle(StrategieReseau):
         return id_entree, noeuds, arcs
 
 class StrategieReseauAuto(StrategieReseau):
-    def configurer(self, t: Terrain) -> tuple[int, dict[int, tuple[int, int]], list[int]]:
+    def configurer(self, t: Terrain, noeuds: dict[int, tuple[int, int]], arcs: list[tuple[int, int]]) -> tuple[int, dict[int, tuple[int, int]], list[int]]:
         def creer_simulation(sim: dict[str, any],
                              cout: float,
                              noeud_depart: tuple[int, int],
@@ -481,7 +555,7 @@ class StrategieReseauAuto(StrategieReseau):
                             elif (sim2 != None): return sim2
                             else: return None
                     return sim
-                elif (direction == None):
+                elif (direction == (None, None)):
                     # Créer deux simulations pour chaque noeud
                     simulations = []
                     for noeud in sim['noeuds'].values():
@@ -529,6 +603,11 @@ class StrategieReseauAuto(StrategieReseau):
                                 if (sim['cout'] > cout): return None
                             elif ((id_noeud_precedent, id_noeud) in arcs_a_eviter): return None
                         else:
+                            if ((y == 0 or y == len(t.cases) - 1) and (y == noeud_arrivee[0])):
+                                dir = 1 if noeud_depart[1] < noeud_arrivee[1] else -1
+
+                                if (t.cases[y][noeud_depart[1] + dir] == Case.OBSTACLE): return None
+
                             # Créer deux simulations horizontales
                             sim1 = creer_simulation(deepcopy(sim), cout, (y - direction[0], noeud_depart[1]), noeud_arrivee, (0, -1), direction, deepcopy(arcs_a_eviter))
                             sim2 = creer_simulation(deepcopy(sim), cout, (y - direction[0], noeud_depart[1]), noeud_arrivee, (0, 1), direction, deepcopy(arcs_a_eviter))
@@ -566,6 +645,11 @@ class StrategieReseauAuto(StrategieReseau):
                                 if (sim['cout'] > cout): return None
                             elif ((id_noeud_precedent, id_noeud) in arcs_a_eviter): return None
                         else:
+                            if ((x == 0 or x == len(t.cases[0]) - 1) and (x == noeud_arrivee[1])):
+                                dir = 1 if noeud_depart[0] < noeud_arrivee[0] else -1
+
+                                if (t.cases[noeud_depart[0] + dir][x] == Case.OBSTACLE): return None
+                            
                             # Créer deux simulations verticales
                             sim1 = creer_simulation(deepcopy(sim), cout, (noeud_depart[0], x - direction[1]), noeud_arrivee, (-1, 0), deepcopy(direction), deepcopy(arcs_a_eviter))
                             sim2 = creer_simulation(deepcopy(sim), cout, (noeud_depart[0], x - direction[1]), noeud_arrivee, (1, 0), deepcopy(direction), deepcopy(arcs_a_eviter))

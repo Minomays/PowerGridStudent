@@ -10,7 +10,7 @@ class TestStrategiesReseau(unittest.TestCase):
         r.set_strategie(StrategieReseauAuto())
 
         t = Terrain()
-        t.charger("terrains/t1.txt")
+        t.charger("terrains/t1.txt", r)
         r.configurer(t)
 
         self.assertTrue(r.valider_reseau())

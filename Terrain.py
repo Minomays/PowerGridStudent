@@ -13,7 +13,7 @@ class Terrain:
         self.cases = []
         self.fichier = ""
 
-    def charger(self, fichier, reseau):
+    def charger(self, fichier, reseau = None):
         self.cases.clear()
         with open(fichier, "r") as f:
             ligne_max = 0
@@ -37,8 +37,11 @@ class Terrain:
         self.hauteur = len(self.cases)
 
         # Effacer la liste des noeuds et des arcs
-        reseau.noeuds = {0: self.get_entree()}
-        reseau.arcs = []
+        if reseau:
+            reseau.noeuds = {0: self.get_entree()}
+            reseau.arcs = []
+        
+        # Garder le nom du fichier
         self.fichier = fichier.split("/")[-1].split(".")[0]
 
     def __getitem__(self, l):

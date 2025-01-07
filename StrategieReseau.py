@@ -555,7 +555,7 @@ class StrategieReseauAuto(StrategieReseau):
                             elif (sim2 != None): return sim2
                             else: return None
                     return sim
-                elif (direction == (None, None)):
+                elif (direction == None):
                     # Créer deux simulations pour chaque noeud
                     simulations = []
                     for noeud in sim['noeuds'].values():
